@@ -46,51 +46,11 @@ class SwinUperNet(L.LightningModule):
         self.val_iou = list()
         self.val_acc = list()
         self.val_loss = list()
-        
-        if self.patch_learning:
-            self.patch_acc = list()
-            self.patch_loss = list()
-            self.patch_classifier = HiearchicalPatchClassifier(dims=dims, num_classes=self.num_classes)
-    
-    
-    def forward(self, x, mask=None):
-        features = self.vt.forward_features(x)
-        # Remove cls token
-        # Features must be in shape b, c, h, w, but currently in b, n, c
-        for fdx, f in enumerate(features):
-            feature = f.permute(0, 3, 1, 2)
-            features[fdx] = feature
-        
-        if self.patch_learning:
-            features, loss = self.patch_forward(features, mask)
-            x = self.dec(features)
-            return x, loss            
-        
-        return self.dec(features)
-    
-    
-    def patch_accuracy(self, patch_pred, mask):
-        patch_pred = torch.argmax(patch_pred, dim=1)
-        patch_acc = acc(patch_pred, mask)
-        return patch_acc
-    
-    
-    def patch_forward(self, features, mask):
 
-        patch_loss = torch.zeros(1)
-        
-        feature, prediction = self.patch_classifier(features)
-        
-        if mask is not None:
-            feature_mask = patchify_mask(mask, self.patch_sizes[0])
-            feature_mask = check_homogeneity_proportions(feature_mask, self.num_classes, -1)
-            feature_mask = feature_mask.permute(0, 3, 1, 2)
-            patch_loss = F.cross_entropy(prediction, feature_mask)
-        
-        self.patch_loss.append(patch_loss.item())
-        
-        return feature, patch_loss.mean()
 
+    def forward(self, x):
+        return self.model(x)
+    
     
     def calculate_metrics(self, logits, mask, step_type="train"):
         prediction = F.softmax(logits, dim=1).argmax(dim=1)
@@ -123,13 +83,7 @@ class SwinUperNet(L.LightningModule):
         self.log("train_iou", epoch_iou, on_epoch=True, sync_dist=True)
         self.log("train_acc", epoch_acc, on_epoch=True, sync_dist=True)
 
-        if self.patch_learning:
-            if len(self.patch_loss) > 0:
-                patch_loss = mean(self.patch_loss)
-                self.log("train_patch_loss", patch_loss, on_epoch=True, sync_dist=True)
-            print(f"Training stats ({self.current_epoch}) | Loss: {epoch_loss}, IoU: {epoch_iou}, Acc: {epoch_acc} Patch Loss: {patch_loss} \n")
-        else:
-            print(f"Training stats ({self.current_epoch}) | Loss: {epoch_loss}, IoU: {epoch_iou}, Acc: {epoch_acc} \n")
+        print(f"Training stats ({self.current_epoch}) | Loss: {epoch_loss}, IoU: {epoch_iou}, Acc: {epoch_acc} \n")
 
 
     def on_validation_epoch_end(self):
@@ -157,10 +111,7 @@ class SwinUperNet(L.LightningModule):
         
         loss = torch.zeros(1).to(self.device)
         
-        if self.patch_learning:
-            x, loss = self(image, mask)
-        else:
-            x = self(image)
+        x = self(image)
         
         loss = loss + self.loss(x, mask)
         
@@ -174,10 +125,7 @@ class SwinUperNet(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         image, mask = batch
         
-        if self.patch_learning:
-            x, loss = self(image)
-        else:
-            x = self(image)
+        x = self(image)
         
         loss = self.loss(x, mask)
         self.val_loss.append(loss.item())
