@@ -5,12 +5,13 @@ import torch.nn.functional as F
 from utils import iou_pytorch as iou, acc_pytorch as acc
 from losses import DiceLoss
 from model import dcswin_tiny, dcswin_small, dcswin_base
+from newformer import NewFormer
 
 import math
 from statistics import mean
 
 
-class SwinUperNet(L.LightningModule):
+class DCSwin(L.LightningModule):
     def __init__(self,
                  num_classes: int,
                  learning_rate: float,
@@ -28,6 +29,10 @@ class SwinUperNet(L.LightningModule):
             self.model = dcswin_base(True, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
         else:
             raise NotImplementedError("Model size not implemented")
+
+
+        self.model = NewFormer()
+        # self.model = dcswin_tiny(False, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -126,7 +131,7 @@ class SwinUperNet(L.LightningModule):
         image, mask = batch
         
         x = self(image)
-        
+
         loss = self.loss(x, mask)
         self.val_loss.append(loss.item())
         
