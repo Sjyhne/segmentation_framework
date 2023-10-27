@@ -8,17 +8,27 @@ def parse_args():
     pass
 
 if __name__ == "__main__":
+
+    train_loader, num_classes = get_dataloader("combined", "train", 16, 1.0)
+    val_loader, num_classes = get_dataloader("combined", "val", 1, 1.0)
+
+    learning_rate = 1e-3
     
+    model_size = "base"
 
-    train_loader, num_classes = get_dataloader("veg", "train", 2, 1.0)
-    val_loader, num_classes = get_dataloader("veg", "val", 1, 1.0)
-    
+    lightning_model = DCSwin(num_classes, learning_rate, train_loader, val_loader, model_size=model_size)
 
-    learning_rate = 1e-4
+    model_checkpoint = L.pytorch.callbacks.ModelCheckpoint(
+        dirpath="checkpoints/",
+        filename=f"{model_size}_"+ "{epoch}-{val_iou:.2f}",
+        monitor="val_iou",
+        mode="max",
+        save_top_k=1,
+        save_last=True,
+        verbose=True
+    )
 
-    lightning_model = DCSwin(num_classes, learning_rate, train_loader, val_loader)
-
-    trainer = L.Trainer(max_epochs=2, accelerator="cpu")
+    trainer = L.Trainer(max_epochs=100, accelerator="gpu", devices=[7], callbacks=[model_checkpoint])
 
     trainer.fit(lightning_model, train_loader, val_loader)
 

@@ -923,7 +923,7 @@ def dcswin_base(pretrained=True, num_classes=4, weight_path='pretrain_weights/st
                    embed_dim=128,
                    depths=(2, 2, 18, 2),
                    num_heads=(4, 8, 16, 32),
-                   frozen_stages=2)
+                   frozen_stages=0)
     if pretrained and weight_path is not None:
         old_dict = torch.load(weight_path)['state_dict']
         model_dict = model.state_dict()
@@ -939,7 +939,7 @@ def dcswin_small(pretrained=True, num_classes=4, weight_path='pretrain_weights/s
                    embed_dim=96,
                    depths=(2, 2, 18, 2),
                    num_heads=(3, 6, 12, 24),
-                   frozen_stages=2)
+                   frozen_stages=0)
     if pretrained and weight_path is not None:
         old_dict = torch.load(weight_path)['state_dict']
         model_dict = model.state_dict()
@@ -955,7 +955,7 @@ def dcswin_tiny(pretrained=True, num_classes=4, weight_path='pretrain_weights/st
                    embed_dim=96,
                    depths=(2, 2, 6, 2),
                    num_heads=(3, 6, 12, 24),
-                   frozen_stages=2)
+                   frozen_stages=0)
     if pretrained and weight_path is not None:
         old_dict = torch.load(weight_path)['state_dict']
         model_dict = model.state_dict()

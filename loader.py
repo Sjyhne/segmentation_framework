@@ -9,10 +9,10 @@ from pathlib import Path
 from transform import TrainingTransform, ValidationTransform
 
 NEW_IMAGE_SIZE = [512, 512] # (width, height) 4:3
-NUM_CLASSES = 2
+NUM_CLASSES = 3
 
 class AerialDataset(Dataset):
-    def __init__(self, root: str, type: str, percentage: float = 1.0, image_size: int = 256, image_suffix: str = "png", mask_suffix: str = "png", transform=None):
+    def __init__(self, root: str, type: str, percentage: float = 1.0, image_size: int = 512, image_suffix: str = "png", mask_suffix: str = "png", transform=None):
         self.root = root
         self.dir = Path(root, type)
         
@@ -25,8 +25,11 @@ class AerialDataset(Dataset):
             self.images = self.images[:int(len(self.images) * percentage)]
             self.masks = self.masks[:int(len(self.masks) * percentage)]
         
-        assert len(self.images) == len(self.masks), "Number of images and masks must be equal"
+        assert len(self.images) == len(self.masks), f"Number of images and masks must be equal, {len(self.images)} != {len(self.masks)}"
 
+        
+        for index in range(len(self.images)):
+            assert self.images[index].stem == self.masks[index].stem, f"Image and mask must have the same name, image = {self.images[index].stem}, mask = {self.masks[index].stem}"
         
         self.transform = TrainingTransform([self.image_size, self.image_size], NUM_CLASSES) if type == "train" else ValidationTransform([self.image_size, self.image_size], NUM_CLASSES)
         
@@ -39,7 +42,11 @@ class AerialDataset(Dataset):
     def __getitem__(self, idx):
         
         imagepath = self.images[idx]
-        maskpath = self.masks[idx]
+        maskpath = imagepath.__str__().replace("images", "masks")
+        
+        idx_id = imagepath.name
+        
+        # maskpath = self.masks[idx]
 
         image = Image.open(imagepath)
         mask = Image.open(maskpath)
@@ -52,24 +59,19 @@ class AerialDataset(Dataset):
         
         image, mask = self.transform(image, mask)
         
-        mask[mask == 255] = 1
-
-        return image, mask
+        return image, mask, idx_id
 
 
 def get_dataloader(dataset_name: str, 
                    dataset_type: str, 
                    batch_size: int, 
                    percentage: float,
-                   image_size: int = 256, 
+                   image_size: int = 512, 
                    num_workers: int = 1) -> DataLoader:
     
     shuffle = dataset_type == "train"
     
-    if dataset_name == "veg":
-        dataset = AerialDataset(root="data/veg", type=dataset_type, percentage=percentage, image_size=image_size)
-    else:
-        return NotImplementedError("Dataset not implemented")
+    dataset = AerialDataset(root="data", type=dataset_type, percentage=percentage, image_size=image_size)
     
     num_classes = dataset.num_classes
     

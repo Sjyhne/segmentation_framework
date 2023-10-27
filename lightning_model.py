@@ -11,27 +11,50 @@ import math
 from statistics import mean
 
 
+# BEGIN: qe7d5f8g4hj2
+import torch
+import numpy as np
+from PIL import Image
+
+def change_values_and_save(tensor, filename, mask=False):
+    # Replace values
+    if mask:
+        tensor[tensor == 1] = 100
+        tensor[tensor == 2] = 200
+        tensor[tensor == 3] = 255
+    
+    # Convert tensor to numpy array
+    np_array = tensor.cpu().numpy().astype(np.uint8)
+    
+    # Convert numpy array to PIL Image
+    pil_image = Image.fromarray(np_array)
+    
+    # Save PIL Image to file
+    pil_image.save(filename)
+
+# END: qe7d5f8g4hj2
+
 class DCSwin(L.LightningModule):
     def __init__(self,
                  num_classes: int,
                  learning_rate: float,
                  train_loader: torch.utils.data.DataLoader,
                  val_loader: torch.utils.data.DataLoader,
-                 model_size: str = "base"
+                 model_size: str = "tiny"
                  ):
         super().__init__()
         
         if model_size == "tiny":
-            self.model = dcswin_tiny(True, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
+            self.model = dcswin_tiny(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
         elif model_size == "small":
-            self.model = dcswin_small(True, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
+            self.model = dcswin_small(False, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
         elif model_size == "base":
-            self.model = dcswin_base(True, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
+            self.model = dcswin_base(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
         else:
             raise NotImplementedError("Model size not implemented")
 
 
-        self.model = NewFormer()
+        # self.model = NewFormer()
         # self.model = dcswin_tiny(False, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
 
         self.train_loader = train_loader
@@ -59,16 +82,21 @@ class DCSwin(L.LightningModule):
     
     def calculate_metrics(self, logits, mask, step_type="train"):
         prediction = F.softmax(logits, dim=1).argmax(dim=1)
+        
+        intersection = torch.logical_and(prediction, mask).sum(dim=(1, 2))
+        union = torch.logical_or(prediction, mask).sum(dim=(1, 2))
+        iou = (intersection + 1e-6) / (union + 1e-6)
 
-        miou = iou(prediction, mask)
+        miou = iou.mean()
         macc = acc(prediction, mask)
-
+        
+        
         if step_type == "train":
             self.train_iou.append(miou.item())
             self.train_acc.append(macc.item())
         else:
-            self.val_iou.append(miou.mean().item())
-            self.val_acc.append(macc.mean().item())
+            self.val_iou.append(miou.item())
+            self.val_acc.append(macc.item())
     
     def on_train_epoch_end(self):
         if len(self.train_iou) > 0:
@@ -146,4 +174,5 @@ class DCSwin(L.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=1e-6)
+        return [optimizer], [scheduler]

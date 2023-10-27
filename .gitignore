@@ -162,3 +162,6 @@ cython_debug/
 pretrained_weights/
 data/
 lightning_logs/
+checkpoints/
+predictions/
+pretrain_weights/
