@@ -1,5 +1,6 @@
 from typing import List
 import requests
+import PIL
 from PIL import Image
 from io import BytesIO
 
@@ -47,6 +48,23 @@ def get_image_url(bbox: List[float], image_size: List[float]) -> str:
     
     return url
 
+def write_error(file, message):
+    """Writes an error message to the given file.
+
+    Args:
+        file (str): The file to write to.
+        message (str): The error message to write.
+    """
+    try:
+        with open(file, "r") as f:
+            lines = f.readlines()
+            if message + "\n" in lines:
+                return
+    except FileNotFoundError:
+        pass
+    
+    with open(file, "a") as f:
+        f.write(message + "\n")
 
 def download_image(url: str, label: bool) -> Image.Image:
     """Downloads an image from the given URL and returns it as an Image object.
@@ -58,9 +76,16 @@ def download_image(url: str, label: bool) -> Image.Image:
         Image.Image: The downloaded image as an Image object.
     """
     response = requests.get(url)
-    time.sleep(0.1)
-    image = Image.open(BytesIO(response.content))
-
+    try:
+        image = Image.open(BytesIO(response.content))
+    except PIL.UnidentifiedImageError as e:
+        time.sleep(0.2)
+        try:
+            image = Image.open(BytesIO(response.content))
+        except PIL.UnidentifiedImageError as e:
+            return e
+    
+    
     if label:
         label = image.convert("L")
         label = np.array(label)
@@ -73,10 +98,10 @@ def download_image(url: str, label: bool) -> Image.Image:
             label[label == 250] = 0 # Background
             label[label == 150] = 1 # Building
             
-            label = Image.fromarray(label).convert("L")
+            label = Image.fromarray(label)
             return label
 
-        return None
+        return Warning("No road in image")
     
     return image
 
@@ -132,7 +157,8 @@ if __name__ == "__main__":
         else:
             label_url = get_label_url(["veg", "bru", "bygning"], [x0, y0, x1, y1], preferred_image_size)
             label = download_image(label_url, label=True)
-            if label is None:
+            if isinstance(label, PIL.UnidentifiedImageError) or isinstance(label, Warning):
+                write_error(data_folder.joinpath("errors.txt"), f"Error downloading label for {filename}: {label}")
                 continue
             
             label.save(label_folder.joinpath(filename))
