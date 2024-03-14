@@ -60,8 +60,8 @@ class TrainingTransform:
     def __call__(self, img, mask):
         # Resize
         
-        #if img.size[0] != self.image_size or img.size[1] != self.image_size:
-        #    img, mask = resize_and_random_crop(img, mask, self.image_size)
+        if img.size[0] != self.image_size or img.size[1] != self.image_size:
+            img, mask = resize_and_random_crop(img, mask, self.image_size)
 
         # Random horizontal flip
         if torch.rand(1).item() > 0.4:
@@ -145,8 +145,8 @@ class ValidationTransform:
         # Resize
         # img, mask = resize_and_random_crop(img, mask, self.image_size)
 
-        #img = resize_image(img, self.image_size[0])
-        #mask = resize_image(mask, self.image_size[0], interp=Image.NEAREST)
+        img = resize_image(img, self.image_size[0])
+        mask = resize_image(mask, self.image_size[0], interp=Image.NEAREST)
         
         # To tensor
         img = TF.to_tensor(img)

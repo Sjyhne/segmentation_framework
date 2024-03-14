@@ -10,6 +10,8 @@ from newformer import NewFormer
 import math
 from statistics import mean
 
+from unet import UNet
+
 
 # BEGIN: qe7d5f8g4hj2
 import torch
@@ -40,19 +42,22 @@ class DCSwin(L.LightningModule):
                  learning_rate: float,
                  train_loader: torch.utils.data.DataLoader,
                  val_loader: torch.utils.data.DataLoader,
-                 model_size: str = "tiny"
+                 model_size: str = "tiny",
+                 model_name: str = "unet"
                  ):
         super().__init__()
         
-        if model_size == "tiny":
-            self.model = dcswin_tiny(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
-        elif model_size == "small":
-            self.model = dcswin_small(False, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
-        elif model_size == "base":
-            self.model = dcswin_base(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
-        else:
-            raise NotImplementedError("Model size not implemented")
-
+        if model_name == "dcswin":
+            if model_size == "tiny":
+                self.model = dcswin_tiny(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
+            elif model_size == "small":
+                self.model = dcswin_small(False, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
+            elif model_size == "base":
+                self.model = dcswin_base(True, num_classes=num_classes, weight_path=f"pretrain_weights/stseg_{model_size}.pth")
+            else:
+                raise NotImplementedError("Model size not implemented")
+        if model_name == "unet":
+            self.model = UNet(3, num_classes, bilinear=False)
 
         # self.model = NewFormer()
         # self.model = dcswin_tiny(False, num_classes=num_classes, weight_path=f"pretrained_weights/stseg_{model_size}.pth")
@@ -140,7 +145,7 @@ class DCSwin(L.LightningModule):
         print(f"Validation stats ({self.current_epoch}) | Loss: {epoch_loss}, IoU: {epoch_iou}, Acc: {epoch_acc} \n")
 
     def training_step(self, batch, batch_idx):
-        image, mask = batch
+        image, mask, _ = batch
         
         loss = torch.zeros(1).to(self.device)
         
@@ -156,7 +161,7 @@ class DCSwin(L.LightningModule):
 
 
     def validation_step(self, batch, batch_idx):
-        image, mask = batch
+        image, mask, _ = batch
         
         x = self(image)
 

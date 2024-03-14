@@ -8,6 +8,8 @@ from lightning_model import DCSwin
 
 from loader import get_dataloader
 
+from tqdm import tqdm
+
 # Define the path to the validation dataset
 val_data_path = "/raid/home/sandej17/techteamet_segmentation/val_data"
 
@@ -15,7 +17,7 @@ val_data_path = "/raid/home/sandej17/techteamet_segmentation/val_data"
 weights_path = "/raid/home/sandej17/techteamet_segmentation/checkpoints/model_weights.pth"
 
 # Define the path to the predictions folder
-predictions_path = "/raid/home/sandej17/techteamet_segmentation/predictions"
+predictions_path = "/raid/home/sandej17/segmentation_framework/predictions"
 
 # Create the predictions folder if it doesn't exist
 if not os.path.exists(predictions_path):
@@ -28,9 +30,9 @@ else:
 # Define the device to use for inference
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-lm = DCSwin.load_from_checkpoint("checkpoints/tiny_epoch=99-val_iou=0.64.ckpt", num_classes=3, learning_rate=1e-3, train_loader=None, val_loader=None, model_size="tiny")
+lm = DCSwin.load_from_checkpoint("checkpoints/last-v6.ckpt", num_classes=2, learning_rate=1e-3, train_loader=None, val_loader=None, model_size="tiny")
 
-validation_loader, num_classes = get_dataloader("combined", "val", 1, 0.1)
+validation_loader, num_classes = get_dataloader("first_road", "val", 1, 1.0)
 
 device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
 
@@ -44,7 +46,7 @@ ious = {
     2: []
 }
 
-for image, mask, idx_id in validation_loader:
+for _, (image, mask, idx_id) in tqdm(enumerate(validation_loader), total=len(validation_loader)):
     image = image.to(device)
     mask = mask.to(device)
     output = lm.model(image)
@@ -90,41 +92,3 @@ for c in range(num_classes):
     
 
 exit("")
-
-import cv2
-
-# Define the transformation to apply to the validation images
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
-# Create the validation dataset
-val_dataset = MyDataset(val_data_path, transform=transform)
-
-# Loop over the validation dataset and perform inference on each image
-for i in range(len(val_dataset)):
-    # Get the image and its filename
-    image, filename = val_dataset[i]
-    image = image.to(device)
-
-    # Perform inference
-    with torch.no_grad():
-        output = lm.model(image)
-        output = torch.argmax(output, dim=1)
-        output = output.cpu().numpy()
-
-    # Get the mask
-    mask = val_dataset.get_mask(filename)
-    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
-
-    # Convert the prediction and image to PIL images
-    prediction = transforms.ToPILImage()(output[0])
-    image = transforms.ToPILImage()(image.cpu()[0])
-
-    # Combine the prediction, image, and mask side-by-side
-    combined = np.concatenate((np.array(image), np.array(prediction), np.array(mask)), axis=1)
-
-    # Save the combined image
-    prediction_path = os.path.join(predictions_path, filename)
-    cv2.imwrite(prediction_path, combined)

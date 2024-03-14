@@ -9,10 +9,10 @@ def parse_args():
 
 if __name__ == "__main__":
 
-    train_loader, num_classes = get_dataloader("combined", "train", 16, 1.0)
-    val_loader, num_classes = get_dataloader("combined", "val", 1, 1.0)
+    train_loader, num_classes = get_dataloader("first_road", "train", 8, 1.0)
+    val_loader, num_classes = get_dataloader("first_road", "val", 1, 1.0)
 
-    learning_rate = 1e-3
+    learning_rate = 1e-2
     
     model_size = "base"
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         verbose=True
     )
 
-    trainer = L.Trainer(max_epochs=100, accelerator="gpu", devices=[7], callbacks=[model_checkpoint])
+    trainer = L.Trainer(max_epochs=100, accelerator="gpu", devices=[1], callbacks=[model_checkpoint])
 
     trainer.fit(lightning_model, train_loader, val_loader)
 

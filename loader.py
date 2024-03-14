@@ -9,7 +9,7 @@ from pathlib import Path
 from transform import TrainingTransform, ValidationTransform
 
 NEW_IMAGE_SIZE = [512, 512] # (width, height) 4:3
-NUM_CLASSES = 3
+NUM_CLASSES = 2
 
 class AerialDataset(Dataset):
     def __init__(self, root: str, type: str, percentage: float = 1.0, image_size: int = 512, image_suffix: str = "png", mask_suffix: str = "png", transform=None):
@@ -59,6 +59,8 @@ class AerialDataset(Dataset):
         
         image, mask = self.transform(image, mask)
         
+        image = image[:3, :, :]
+                
         return image, mask, idx_id
 
 
@@ -67,11 +69,11 @@ def get_dataloader(dataset_name: str,
                    batch_size: int, 
                    percentage: float,
                    image_size: int = 512, 
-                   num_workers: int = 1) -> DataLoader:
+                   num_workers: int = 100) -> DataLoader:
     
     shuffle = dataset_type == "train"
     
-    dataset = AerialDataset(root="data", type=dataset_type, percentage=percentage, image_size=image_size)
+    dataset = AerialDataset(root=f"data/{dataset_name}", type=dataset_type, percentage=percentage, image_size=image_size)
     
     num_classes = dataset.num_classes
     
